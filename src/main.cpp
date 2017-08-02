@@ -7,6 +7,8 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
 
 const GLuint load_shader(const std::string &file_path, GLenum shader_type) {
   // Read the Shader code from the file
@@ -35,7 +37,7 @@ const GLuint load_shader(const std::string &file_path, GLenum shader_type) {
   return id;
 }
 
-GLuint create_program(const std::string vertex_file_path,
+GLuint load_program(const std::string vertex_file_path,
     const std::string fragment_file_path) {
 
   const GLuint vobj = load_shader(vertex_file_path, GL_VERTEX_SHADER);
@@ -98,37 +100,111 @@ int main() {
   std::cout << "GL_VERSION: " << glGetString(GL_VERSION) << std::endl;
 
   glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
-  glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+  glClearColor(0.0f, 0.0f, 1.0f, 0.0f);
 
-  GLuint program = create_program(
+  GLuint program = load_program(
       "resources/simple_vertex_shader.vertexshader",
       "resources/simple_fragment_shader.fragmentshader");
 
-  GLuint vertex_array_id;
-  glGenVertexArrays(1, &vertex_array_id);
-  glBindVertexArray(vertex_array_id);
-
   static const GLfloat vertex_buffer_data[] = {
-    -1.0f, -1.0f, 0.0f,
-    1.0f, -1.0f, 0.0f,
-    0.0f,  1.0f, 0.0f,
+    -0.5f,-0.5f,-0.5f, // 三角形1:開始
+    -0.5f,-0.5f, 0.5f,
+    -0.5f, 0.5f, 0.5f, // 三角形1:終了
+    0.5f, 0.5f,-0.5f, // 三角形2:開始
+    -0.5f,-0.5f,-0.5f,
+    -0.5f, 0.5f,-0.5f, // 三角形2:終了
+    0.5f,-0.5f, 0.5f,
+    -0.5f,-0.5f,-0.5f,
+    0.5f,-0.5f,-0.5f,
+    0.5f, 0.5f,-0.5f,
+    0.5f,-0.5f,-0.5f,
+    -0.5f,-0.5f,-0.5f,
+    -0.5f,-0.5f,-0.5f,
+    -0.5f, 0.5f, 0.5f,
+    -0.5f, 0.5f,-0.5f,
+    0.5f,-0.5f, 0.5f,
+    -0.5f,-0.5f, 0.5f,
+    -0.5f,-0.5f,-0.5f,
+    -0.5f, 0.5f, 0.5f,
+    -0.5f,-0.5f, 0.5f,
+    0.5f,-0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f,
+    0.5f,-0.5f,-0.5f,
+    0.5f, 0.5f,-0.5f,
+    0.5f,-0.5f,-0.5f,
+    0.5f, 0.5f, 0.5f,
+    0.5f,-0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f,
+    0.5f, 0.5f,-0.5f,
+    -0.5f, 0.5f,-0.5f,
+    0.5f, 0.5f, 0.5f,
+    -0.5f, 0.5f,-0.5f,
+    -0.5f, 0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f,
+    -0.5f, 0.5f, 0.5f,
+    0.5f,-0.5f, 0.5f
   };
 
   GLuint vertex_buffer;
   glGenBuffers(1, &vertex_buffer);
-  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data),
-      vertex_buffer_data, GL_STATIC_DRAW);
+  GLuint vertex_array_id;
+  glGenVertexArrays(1, &vertex_array_id);
+  glBindVertexArray(vertex_array_id);
+
+  GLuint color_buffer;
+  glGenBuffers(1, &color_buffer);
+  GLfloat color_buffer_data[12*3*3];
+  for (int v = 0; v < 12*3 ; v++){
+    color_buffer_data[3*v+0] = v / static_cast<double>(12*3);
+    color_buffer_data[3*v+1] = v / static_cast<double>(12*3);
+    color_buffer_data[3*v+2] = v / static_cast<double>(12*3);
+  }
+  glBindBuffer(GL_ARRAY_BUFFER, color_buffer);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(color_buffer_data),
+      color_buffer_data, GL_STATIC_DRAW);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+  glm::mat4 model = glm::mat4();
+  glm::mat4 view = glm::lookAt(
+      glm::vec3(4, 3, -3),
+      glm::vec3(0, 0, 0),
+      glm::vec3(0, 1, 0));
+  glm::mat4 projection =
+    glm::perspective(glm::radians(30.0), 4.0/3.0, 0.1, 10.0);
+  glm::mat4 mvp = projection * view * model;
+  GLuint mvp_id = glGetUniformLocation(program, "mvp");
+
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+
+  int timer = 0;
 
   // main loop
   while (!glfwWindowShouldClose(window)) {
-    glClear(GL_COLOR_BUFFER_BIT);
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, static_cast<void*>(0));
-    glEnableVertexAttribArray(0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(program);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    // vertex
+    glEnableVertexAttribArray(0);
+    timer++;
+    if (timer > 6) {
+        timer = 0;
+        model = glm::rotate(glm::radians(5.0f), glm::vec3(0,1,0)) * model;
+        mvp = projection * view * model;
+    }
+    glUniformMatrix4fv(mvp_id, 1, GL_FALSE, &mvp[0][0]);
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data),
+        vertex_buffer_data, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+    // color
+    glEnableVertexAttribArray(1);
+
+    glDrawArrays(GL_TRIANGLES, 0, 3*12);
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
