@@ -1,7 +1,7 @@
 #version 330 core
-in vec3 position;
-uniform mat4 mvp;
+layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 vertexColor;
+uniform mat4 mvp;
 out vec3 fragmentColor;
 void main() {
   vec4 v = vec4(position, 1);
